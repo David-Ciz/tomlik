@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metadata Form with Date Selection and Formatting</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        label { display: block; margin-top: 10px; }
+        input, select, textarea { width: 100%; padding: 5px; margin-top: 5px; }
+        button { padding: 10px; margin-top: 5px; font-size: 16px; cursor: pointer; }
+        .hidden { display: none; }
+        #tomlOutput { white-space: pre-wrap; background-color: #f4f4f4; padding: 10px; margin-top: 20px; }
+        .type-buttons { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .type-buttons button { width: 32%; height: 50px; }
+        .button-group { display: flex; flex-direction: column; align-items: center; margin-top: 20px; }
+        .button-group button { width: 60%; margin-bottom: 10px; }
+        .selected { background-color: lightblue; }
+    </style>
+</head>
+<body>
+    <h1>Metadata Form with Date Selection and Formatting</h1>
+    
+    <div class="type-buttons">
+        <button onclick="showForm('FF')" id="FFButton">Force Field (FF)</button>
+        <button onclick="showForm('simulation')" id="simulationButton">Simulation</button>
+        <button onclick="showForm('experimental')" id="experimentalButton">Experimental</button>
+    </div>
+
+    <form id="FFForm" class="hidden">
+        <h2>Force Field Data</h2>
+        <label for="ffName">FF Name:</label>
+        <input type="text" id="ffName" name="FF_name">
+        
+        <label for="moleculeType">Molecule Type (comma-separated):</label>
+        <input type="text" id="moleculeType" name="molecule_type">
+        
+        <label for="ffTimestamp">Data Publication Date:</label>
+        <input type="date" id="ffTimestamp" name="data_publication_timestamp">
+        
+        <label for="ffDOI">Reference Article DOI:</label>
+        <input type="text" id="ffDOI" name="reference_article_DOI">
+        
+        <label for="ffAuthor">Author Name:</label>
+        <input type="text" id="ffAuthor" name="author_name">
+        
+        <div class="button-group">
+            <button type="button" onclick="generateTOML('FF')">Generate FF TOML</button>
+            <button type="button" onclick="downloadTOML('FF')" id="FFDownloadButton" class="hidden">Download FF TOML</button>
+        </div>
+    </form>
+
+    <form id="simulationForm" class="hidden">
+        <h2>Simulation Data</h2>
+        <h3>Molecule</h3>
+        <label for="molOrganism">Molecule Organism:</label>
+        <select id="molOrganism" name="molecule.molecule_organism">
+            <option value="artificial">Artificial</option>
+            <option value="none">None</option>
+            <option value="E.coli">E.coli</option>
+        </select>
+        
+        <label for="molOrganismDesc">Molecule Organism Description:</label>
+        <textarea id="molOrganismDesc" name="molecule.molecule_organism_desc"></textarea>
+
+        <h3>Simulation</h3>
+        <label for="simAuthor">Author Name:</label>
+        <input type="text" id="simAuthor" name="simulation.author_name">
+        
+        <label for="simDesc">Simulation Description:</label>
+        <textarea id="simDesc" name="simulation.simulation_description"></textarea>
+        
+        <label for="simName">Simulation Name:</label>
+        <input type="text" id="simName" name="simulation.sim_name">
+        
+        <label for="stripMask">Stripping Mask:</label>
+        <input type="text" id="stripMask" name="simulation.stripping_mask">
+        
+        <div class="button-group">
+            <button type="button" onclick="generateTOML('simulation')">Generate Simulation TOML</button>
+            <button type="button" onclick="downloadTOML('simulation')" id="simulationDownloadButton" class="hidden">Download Simulation TOML</button>
+        </div>
+    </form>
+
+    <form id="experimentalForm" class="hidden">
+        <h2>Experimental Data</h2>
+        <label for="expDataType">Experimental Data Type:</label>
+        <input type="text" id="expDataType" name="exp_data_type">
+        
+        <label for="expTimestamp">Data Publication Date:</label>
+        <input type="date" id="expTimestamp" name="data_publication_timestamp">
+        
+        <label for="expDOI">Reference Article DOI:</label>
+        <input type="text" id="expDOI" name="reference_article_doi">
+        
+        <label for="expAuthor">Author Name:</label>
+        <input type="text" id="expAuthor" name="author_name">
+        
+        <label for="expTemp">Temperature:</label>
+        <input type="number" id="expTemp" name="temperature" step="0.1">
+        
+        <div class="button-group">
+            <button type="button" onclick="generateTOML('experimental')">Generate Experimental TOML</button>
+            <button type="button" onclick="downloadTOML('experimental')" id="experimentalDownloadButton" class="hidden">Download Experimental TOML</button>
+        </div>
+    </form>
+    
+    <div id="tomlOutput" class="hidden"></div>
+
+    <script>
+        function showForm(formType) {
+            document.getElementById('FFForm').classList.add('hidden');
+            document.getElementById('simulationForm').classList.add('hidden');
+            document.getElementById('experimentalForm').classList.add('hidden');
+            document.getElementById('tomlOutput').classList.add('hidden');
+            
+            const downloadButtons = document.querySelectorAll('[id$="DownloadButton"]');
+            downloadButtons.forEach(button => button.classList.add('hidden'));
+            
+            document.getElementById(formType + 'Form').classList.remove('hidden');
+
+            // Update button styles
+            document.getElementById('FFButton').classList.remove('selected');
+            document.getElementById('simulationButton').classList.remove('selected');
+            document.getElementById('experimentalButton').classList.remove('selected');
+            document.getElementById(formType + 'Button').classList.add('selected');
+        }
+
+        function toTOML(obj) {
+            let toml = '';
+            for (const [key, value] of Object.entries(obj)) {
+                if (typeof value === 'object' && value !== null) {
+                    toml += `[${key}]\n`;
+                    for (const [subKey, subValue] of Object.entries(value)) {
+                        toml += `${subKey} = ${JSON.stringify(subValue)}\n`;
+                    }
+                } else {
+                    toml += `${key} = ${JSON.stringify(value)}\n`;
+                }
+            }
+            return toml;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+        }
+
+        function generateTOML(formType) {
+            const form = document.getElementById(formType + 'Form');
+            const formData = new FormData(form);
+            let metadata = {
+                data_type: formType
+            };
+            
+            if (formType === 'simulation') {
+                metadata.molecule = {};
+                metadata.simulation = {};
+            } else {
+                metadata[formType] = {};
+            }
+
+            for (let [key, value] of formData.entries()) {
+                if (value !== '') {
+                    if (formType === 'simulation') {
+                        const [section, field] = key.split('.');
+                        metadata[section][field] = value;
+                    } else if (formType === 'FF' && key === 'molecule_type') {
+                        metadata[formType][key] = value.split(',').map(item => item.trim());
+                    } else if (key === 'data_publication_timestamp') {
+                        metadata[formType][key] = formatDate(value);
+                    } else {
+                        metadata[formType][key] = value;
+                    }
+                }
+            }
+            
+            const tomlString = toTOML(metadata);
+            const tomlOutput = document.getElementById('tomlOutput');
+            tomlOutput.textContent = tomlString;
+            tomlOutput.classList.remove('hidden');
+            
+            const downloadButton = document.getElementById(formType + 'DownloadButton');
+            if (downloadButton) {
+                downloadButton.classList.remove('hidden');
+            }
+        }
+
+        function downloadTOML(formType) {
+            const tomlString = document.getElementById('tomlOutput').textContent;
+            const blob = new Blob([tomlString], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = formType + '_metadata.toml';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Show Simulation form by default
+        showForm('simulation');
+    </script>
+</body>
+</html>
